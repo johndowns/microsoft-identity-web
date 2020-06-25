@@ -14,20 +14,20 @@ namespace Microsoft.Identity.Web.InstanceDiscovery
         /// <summary>
         /// Preferred alias.
         /// </summary>
-        [JsonPropertyName(PropertyName = "preferred_network")]
+        [JsonPropertyName("preferred_network")]
         public string? PreferredNetwork { get; set; }
 
         /// <summary>
         /// Preferred alias to cache tokens emitted by one of the aliases (to avoid
         /// SSO islands).
         /// </summary>
-        [JsonPropertyName(PropertyName = "preferred_cache")]
+        [JsonPropertyName("preferred_cache")]
         public string? PreferredCache { get; set; }
 
         /// <summary>
         /// Aliases of issuer URLs which are equivalent.
         /// </summary>
-        [JsonPropertyName(PropertyName = "aliases")]
+        [JsonPropertyName("aliases")]
         public List<string>? Aliases { get; set; }
     }
 }

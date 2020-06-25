@@ -10,10 +10,10 @@ namespace Microsoft.Identity.Web
 {
     internal class ClientInfo
     {
-        [JsonPropertyName("uid", IsRequired = false)]
+        [JsonPropertyName("uid")]
         public string? UniqueObjectIdentifier { get; set; }
 
-        [JsonPropertyName("utid", IsRequired=false)]
+        [JsonPropertyName("utid")]
         public string? UniqueTenantIdentifier { get; set; }
 
         public static ClientInfo CreateFromJson(string clientInfo)
