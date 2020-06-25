@@ -17,7 +17,7 @@ namespace Microsoft.Identity.Web
     /// <summary>
     /// Extensions for AuthenticationBuilder for startup initialization.
     /// </summary>
-    public static class WebAppAuthenticationBuilderExtensions
+    public static partial class WebAppAuthenticationBuilderExtensions
     {
         /// <summary>
         /// Add authentication with Microsoft identity platform.
@@ -32,14 +32,14 @@ namespace Microsoft.Identity.Web
         /// Set to true if you want to debug, or just understand the OpenIdConnect events.
         /// </param>
         /// <returns>The authentication builder for chaining.</returns>
-        public static AuthenticationBuilder AddSignIn(
+        public static AuthenticationBuilder AddMicrosoftWebApp(
             this AuthenticationBuilder builder,
             IConfiguration configuration,
             string configSectionName = "AzureAd",
             string openIdConnectScheme = OpenIdConnectDefaults.AuthenticationScheme,
             string cookieScheme = CookieAuthenticationDefaults.AuthenticationScheme,
             bool subscribeToOpenIdConnectMiddlewareDiagnosticsEvents = false) =>
-                builder.AddSignIn(
+                builder.AddMicrosoftWebApp(
                     options => configuration.Bind(configSectionName, options),
                     options => configuration.Bind(configSectionName, options),
                     openIdConnectScheme,
@@ -59,7 +59,7 @@ namespace Microsoft.Identity.Web
         /// Set to true if you want to debug, or just understand the OpenIdConnect events.
         /// </param>
         /// <returns>The authentication builder for chaining.</returns>
-        public static AuthenticationBuilder AddSignIn(
+        public static AuthenticationBuilder AddMicrosoftWebApp(
             this AuthenticationBuilder builder,
             Action<OpenIdConnectOptions> configureOpenIdConnectOptions,
             Action<MicrosoftIdentityOptions> configureMicrosoftIdentityOptions,
@@ -146,31 +146,7 @@ namespace Microsoft.Identity.Web
                         await b2cOidcHandlers.OnRedirectToIdentityProvider(context).ConfigureAwait(false);
                     }
 
-                    // Override the redirect Uri, if provided
-                    if (Uri.TryCreate(microsoftIdentityOptions.RedirectUri, UriKind.Absolute, out Uri uri))
-                    {
-                        if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-                        {
-                            context.ProtocolMessage.RedirectUri = microsoftIdentityOptions.RedirectUri;
-                        }
-                    }
-
                     await redirectToIdpHandler(context).ConfigureAwait(false);
-                };
-
-                var redirectToIdpForSignOutHandler = options.Events.OnRedirectToIdentityProviderForSignOut;
-                options.Events.OnRedirectToIdentityProviderForSignOut = async context =>
-                {
-                    await redirectToIdpForSignOutHandler(context).ConfigureAwait(false);
-
-                    // Override the post logout redirect Uri, if provided
-                    if (Uri.TryCreate(microsoftIdentityOptions.PostLogoutRedirectUri, UriKind.Absolute, out Uri uri))
-                    {
-                        if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-                        {
-                            context.ProtocolMessage.PostLogoutRedirectUri = microsoftIdentityOptions.PostLogoutRedirectUri;
-                        }
-                    }
                 };
 
                 if (microsoftIdentityOptions.IsB2C)

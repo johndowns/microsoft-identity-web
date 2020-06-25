@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Http;
@@ -140,6 +141,7 @@ namespace Microsoft.Identity.Web
                 // Share the ID Token though
                 var result = await _application
                     .AcquireTokenByAuthorizationCode(scopes.Except(_scopesRequestedByMsal), context.ProtocolMessage.Code)
+                    .WithSendX5C(_microsoftIdentityOptions.SendX5C)
                     .ExecuteAsync()
                     .ConfigureAwait(false);
                 context.HandleCodeRedemption(null, result.IdToken);
@@ -230,6 +232,7 @@ namespace Microsoft.Identity.Web
                                                 : validatedToken.InnerToken.RawData;
                     var result = await _application
                                         .AcquireTokenOnBehalfOf(scopes.Except(_scopesRequestedByMsal), new UserAssertion(tokenUsedToCallTheWebApi))
+                                        .WithSendX5C(_microsoftIdentityOptions.SendX5C)
                                         .ExecuteAsync()
                                         .ConfigureAwait(false);
                     accessToken = result.AccessToken;
@@ -268,6 +271,7 @@ namespace Microsoft.Identity.Web
             AuthenticationResult result;
             result = await _application
                    .AcquireTokenForClient(scopes.Except(_scopesRequestedByMsal))
+                   .WithSendX5C(_microsoftIdentityOptions.SendX5C)
                    .ExecuteAsync()
                    .ConfigureAwait(false);
 
@@ -278,7 +282,7 @@ namespace Microsoft.Identity.Web
         /// Removes the account associated with context.HttpContext.User from the MSAL.NET cache.
         /// </summary>
         /// <param name="context">RedirectContext passed-in to a <see cref="OpenIdConnectEvents.OnRedirectToIdentityProviderForSignOut"/>
-        /// Openidconnect event.</param>
+        /// OpenID Connect event.</param>
         /// <returns></returns>
         public async Task RemoveAccountAsync(RedirectContext context)
         {
@@ -330,6 +334,13 @@ namespace Microsoft.Identity.Web
         /// </summary>
         private async Task<IConfidentialClientApplication> BuildConfidentialClientApplicationAsync()
         {
+            var request = CurrentHttpContext.Request;
+            string currentUri = UriHelper.BuildAbsolute(
+                request.Scheme,
+                request.Host,
+                request.PathBase,
+                _microsoftIdentityOptions.CallbackPath.Value ?? string.Empty);
+
             if (!_applicationOptions.Instance.EndsWith("/", StringComparison.InvariantCulture))
             {
                 _applicationOptions.Instance += "/";
@@ -339,38 +350,35 @@ namespace Microsoft.Identity.Web
             IConfidentialClientApplication app;
 
             MicrosoftIdentityOptionsValidation microsoftIdentityOptionsValidation = new MicrosoftIdentityOptionsValidation();
-            if (microsoftIdentityOptionsValidation.ValidateClientSecret(_applicationOptions).Failed)
-            {
-                string msg = string.Format(CultureInfo.InvariantCulture, "Client secret cannot be null or whitespace, " +
-                   "and must be included in the configuration of the web app when calling a web API. " +
-                   "For instance, in the appsettings.json file. ");
-
-                _logger.LogInformation(msg);
-                throw new MsalClientException(
-                    "missing_client_credentials",
-                    msg);
-            }
+            microsoftIdentityOptionsValidation.ValidateEitherClientCertificateOrClientSecret(
+                _applicationOptions.ClientSecret,
+                _microsoftIdentityOptions.ClientCertificates);
 
             try
             {
                 var builder = ConfidentialClientApplicationBuilder
                         .CreateWithApplicationOptions(_applicationOptions)
-                        .WithRedirectUri(CreateRedirectUri())
+                        .WithRedirectUri(currentUri)
                         .WithHttpClientFactory(_httpClientFactory);
 
                 if (_microsoftIdentityOptions.IsB2C)
                 {
                     authority = $"{_applicationOptions.Instance}tfp/{_microsoftIdentityOptions.Domain}/{_microsoftIdentityOptions.DefaultUserFlow}";
                     builder.WithB2CAuthority(authority);
-                    app = builder.Build();
                 }
                 else
                 {
                     authority = $"{_applicationOptions.Instance}{_applicationOptions.TenantId}/";
                     builder.WithAuthority(authority);
-                    app = builder.Build();
                 }
 
+                if (_microsoftIdentityOptions.ClientCertificates != null)
+                {
+                    X509Certificate2 certificate = DefaultCertificateLoader.LoadFirstCertificate(_microsoftIdentityOptions.ClientCertificates);
+                    builder.WithCertificate(certificate);
+                }
+
+                app = builder.Build();
                 // Initialize token cache providers
                 await _tokenCacheProvider.InitializeAsync(app.AppTokenCache).ConfigureAwait(false);
                 await _tokenCacheProvider.InitializeAsync(app.UserTokenCache).ConfigureAwait(false);
@@ -464,6 +472,7 @@ namespace Microsoft.Identity.Web
                 result = await application
                     .AcquireTokenSilent(scopes.Except(_scopesRequestedByMsal), account)
                     .WithB2CAuthority(authority)
+                    .WithSendX5C(_microsoftIdentityOptions.SendX5C)
                     .ExecuteAsync()
                     .ConfigureAwait(false);
 
@@ -476,6 +485,7 @@ namespace Microsoft.Identity.Web
                 result = await application
                     .AcquireTokenSilent(scopes.Except(_scopesRequestedByMsal), account)
                     .WithAuthority(authority)
+                    .WithSendX5C(_microsoftIdentityOptions.SendX5C)
                     .ExecuteAsync()
                     .ConfigureAwait(false);
                 return result.AccessToken;
@@ -484,6 +494,7 @@ namespace Microsoft.Identity.Web
             {
                 result = await application
                    .AcquireTokenSilent(scopes.Except(_scopesRequestedByMsal), account)
+                   .WithSendX5C(_microsoftIdentityOptions.SendX5C)
                    .ExecuteAsync()
                    .ConfigureAwait(false);
                 return result.AccessToken;
@@ -563,27 +574,6 @@ namespace Microsoft.Identity.Web
             }
 
             return null;
-        }
-
-        internal /*for test only*/ string CreateRedirectUri()
-        {
-            if (Uri.TryCreate(_microsoftIdentityOptions.RedirectUri, UriKind.Absolute, out Uri uri))
-            {
-                if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-                {
-                    return _microsoftIdentityOptions.RedirectUri;
-                }
-
-                _logger.LogInformation("MicrosoftIdentityOptions RedirectUri value must have a Uri Scheme " +
-                    "of http or https in order to be a valid RedirectUri. ");
-            }
-
-            var request = CurrentHttpContext.Request;
-            return UriHelper.BuildAbsolute(
-                request.Scheme,
-                request.Host,
-                request.PathBase,
-                _microsoftIdentityOptions.CallbackPath.Value ?? string.Empty);
         }
     }
 }

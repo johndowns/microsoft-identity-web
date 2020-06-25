@@ -24,8 +24,9 @@ namespace Microsoft.Identity.Web.Resource
         /// </summary>
         /// <param name="context">HttpContext (from the controller).</param>
         /// <param name="acceptedScopes">Scopes accepted by this web API.</param>
-        /// <exception cref="HttpRequestException"/> with a <see cref="HttpResponse.StatusCode"/> set to
-        /// <see cref="HttpStatusCode.Unauthorized"/>
+        /// <exception cref="HttpRequestException"> with a <see cref="HttpResponse.StatusCode"/> set to
+        /// <see cref="HttpStatusCode.Unauthorized"/>.
+        /// </exception>
         public static void VerifyUserHasAnyAcceptedScope(this HttpContext context, params string[] acceptedScopes)
         {
             if (acceptedScopes == null)
@@ -33,7 +34,13 @@ namespace Microsoft.Identity.Web.Resource
                 throw new ArgumentNullException(nameof(acceptedScopes));
             }
 
-            Claim? scopeClaim = context?.User?.FindFirst("http://schemas.microsoft.com/identity/claims/scope");
+            Claim ?scopeClaim = context?.User?.FindFirst(ClaimConstants.Scope);
+
+            // Fallback to scp claim name
+            if (scopeClaim == null)
+            {
+                scopeClaim = context?.User?.FindFirst(ClaimConstants.Scp);
+            }
 
             if (scopeClaim == null || !scopeClaim.Value.Split(' ').Intersect(acceptedScopes).Any())
             {

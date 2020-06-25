@@ -2,20 +2,18 @@
 // Licensed under the MIT License.
 
 using System;
-using System.IO;
 using System.Runtime.Serialization;
-using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Microsoft.Identity.Web
 {
-    [DataContract]
     internal class ClientInfo
     {
-        [DataMember(Name = "uid", IsRequired = false)]
+        [JsonPropertyName("uid", IsRequired = false)]
         public string? UniqueObjectIdentifier { get; set; }
 
-        [DataMember(Name = "utid", IsRequired = false)]
+        [JsonPropertyName("utid", IsRequired=false)]
         public string? UniqueTenantIdentifier { get; set; }
 
         public static ClientInfo CreateFromJson(string clientInfo)
@@ -25,11 +23,22 @@ namespace Microsoft.Identity.Web
                 throw new ArgumentNullException(nameof(clientInfo), $"client info returned from the server is null");
             }
 
-            var jsonByteArray = Base64UrlHelpers.DecodeToBytes(clientInfo);
+            return DeserializeFromJson(Base64UrlHelpers.DecodeToBytes(clientInfo));
+        }
 
-            using MemoryStream stream = new MemoryStream(jsonByteArray);
-            using StreamReader reader = new StreamReader(stream, Encoding.UTF8);
-            return (ClientInfo)JsonSerializer.Create().Deserialize(reader, typeof(ClientInfo));
+        internal static ClientInfo DeserializeFromJson(byte[] jsonByteArray)
+        {
+            if (jsonByteArray == null || jsonByteArray.Length == 0)
+            {
+                return default;
+            }
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            };
+
+            return JsonSerializer.Deserialize<ClientInfo>(jsonByteArray, options);
         }
     }
 }

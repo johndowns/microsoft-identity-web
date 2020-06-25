@@ -41,6 +41,9 @@ using Microsoft.Extensions.Hosting;
 #if(MultiOrgAuth)
 using Microsoft.IdentityModel.Tokens;
 #endif
+#if (GenerateApi)
+using Company.WebApplication1.Services;
+#endif
 
 namespace Company.WebApplication1
 {
@@ -69,14 +72,22 @@ namespace Company.WebApplication1
                 .AddEntityFrameworkStores<ApplicationDbContext>();
 #elif (OrganizationalAuth)
             services.AddSignIn(Configuration, "AzureAd");
-            // Uncomment the following lines if you want your Web app to call a downstream API
-            // services.AddWebAppCallsProtectedWebApi(Configuration, 
-            //                                        new string[] { "user.read" }, 
-            //                                        "AzureAd")
-            //         .AddInMemoryTokenCaches();
+#if (GenerateApi)
+            services.AddWebAppCallsProtectedWebApi(Configuration, 
+                                                  "AzureAd")
+                    .AddInMemoryTokenCaches();
 
+            services.AddDownstreamWebApiService(Configuration);
+#endif
 #elif (IndividualB2CAuth)
             services.AddSignIn(Configuration, "AzureAdB2C");
+#if (GenerateApi)
+            services.AddWebAppCallsProtectedWebApi(Configuration, 
+                                                  "AzureAdB2C")
+                    .AddInMemoryTokenCaches();
+
+            services.AddDownstreamWebApiService(Configuration);
+#endif
 #endif
 #if (OrganizationalAuth)
 
@@ -88,8 +99,7 @@ namespace Company.WebApplication1
                 options.Filters.Add(new AuthorizeFilter(policy));
             }).AddMicrosoftIdentityUI();
 #else
-            services.AddRazorPages()
-                    .AddMicrosoftIdentityUI();
+            services.AddRazorPages();
 #endif
         }
 

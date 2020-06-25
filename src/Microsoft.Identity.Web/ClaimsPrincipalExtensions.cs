@@ -22,7 +22,7 @@ namespace Microsoft.Identity.Web
             {
                 throw new ArgumentNullException(nameof(claimsPrincipal));
             }
-            
+
             string uniqueObjectIdentifier = claimsPrincipal.GetHomeObjectId();
             string uniqueTenantIdentifier = claimsPrincipal.GetHomeTenantId();
 
@@ -169,15 +169,15 @@ namespace Microsoft.Identity.Web
             {
                 throw new ArgumentNullException(nameof(claimsPrincipal));
             }
-            
+
             return claimsPrincipal.FindFirstValue(ClaimConstants.UniqueTenantIdentifier);
         }
 
         /// <summary>
         /// Gets the NameIdentifierId associated with the <see cref="ClaimsPrincipal"/>.
         /// </summary>
-        /// <param name="claimsPrincipal">the <see cref="ClaimsPrincipal"/> from which to retrieve the sub claim.</param>
-        /// <returns>Name identifier ID (sub) of the identity, or <c>null</c> if it cannot be found.</returns>
+        /// <param name="claimsPrincipal">The <see cref="ClaimsPrincipal"/> from which to retrieve the <c>uid</c> claim.</param>
+        /// <returns>Name identifier ID (uid) of the identity, or <c>null</c> if it cannot be found.</returns>
         public static string GetNameIdentifierId(this ClaimsPrincipal claimsPrincipal)
         {
             return claimsPrincipal.FindFirstValue(ClaimConstants.UniqueObjectIdentifier);
